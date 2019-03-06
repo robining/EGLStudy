@@ -3,7 +3,6 @@ package com.robiningeglstudy
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.SurfaceTexture
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
@@ -15,17 +14,56 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
-import javax.microedition.khronos.opengles.GL
 import javax.microedition.khronos.opengles.GL10
+import android.graphics.ImageFormat
+import android.hardware.Camera
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaFormat
+import kotlin.concurrent.thread
+
 
 class MainActivity : AppCompatActivity() {
     val TAG = "MainActivity"
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        val backgroundRender = BackgroundRender()
-        val pictureRender = PictureRender(this)
-        surfaceView.setRenders(arrayOf(pictureRender))
+//        CameraUtil.openCamera(surfaceView)
+
+        surfaceView.renderMode = RGLSurfaceView.RenderMode.RENDERMODE_WHEN_DIRTY
+        val tRender = CameraPreviewRender(this, surfaceView)
+        surfaceView.setRenders(arrayOf(tRender))
+
+        val mime = "video/avc"
+        val width = 1080
+        val height = 1920
+        val videoFormat = MediaFormat.createVideoFormat(mime, 1080, 1920)
+        videoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+        videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 4)
+        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
+        videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        val encodec = MediaCodec.createEncoderByType(mime)
+        encodec.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+
+        val surface = encodec.createInputSurface()
+        surfaceView.getExtraSurfaces().add(surface)
+
+        encodec.start()
+
+        thread {
+            val mediaInfo = MediaCodec.BufferInfo()
+            while (true){
+                var outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
+                while (outbufferIndex >= 0){
+                    val buffer = encodec.outputBuffers[outbufferIndex]
+                    buffer.position(mediaInfo.offset)
+                    buffer.limit(mediaInfo.size + mediaInfo.offset)
+                    Log.e("MainActivity", "ana------:encoded ${mediaInfo.size} data")
+                    encodec.releaseOutputBuffer(outbufferIndex,false)
+                    outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
+                }
+            }
+        }
     }
 
     class BackgroundRender : GLSurfaceView.Renderer {
@@ -85,10 +123,10 @@ class MainActivity : AppCompatActivity() {
 
         }
 
-        private fun drawToFrameBuffer(){
-            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER,textureFboId!!) //fbo不会使用
+        private fun drawToFrameBuffer() {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, textureFboId!!) //fbo不会使用
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-            GLES20.glClearColor(1.0f,0.0f,0.0f,1.0f)
+            GLES20.glClearColor(1.0f, 0.0f, 0.0f, 1.0f)
 
             GLES20.glUseProgram(programId!!)
 
@@ -119,7 +157,7 @@ class MainActivity : AppCompatActivity() {
             val startTimestamp = System.currentTimeMillis()
             drawToFrameBuffer()
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-            GLES20.glClearColor(0.0f,1.0f,0.0f,1.0f)
+            GLES20.glClearColor(0.0f, 1.0f, 0.0f, 1.0f)
 
             GLES20.glUseProgram(programId!!)
 
@@ -139,7 +177,7 @@ class MainActivity : AppCompatActivity() {
 
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-            Log.e("PictureRender","drawed a frame costed:${System.currentTimeMillis() - startTimestamp}")
+            Log.e("PictureRender", "drawed a frame costed:${System.currentTimeMillis() - startTimestamp}")
         }
 
         override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -148,7 +186,7 @@ class MainActivity : AppCompatActivity() {
 
         override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
             val vertexShaderId = GlesUtil.createVertexShader(context, R.raw.gl_vertext_shader)
-            val fragmentShaderId = GlesUtil.createFragmentShader(context, R.raw.gl_fragment_shader)
+            val fragmentShaderId = GlesUtil.createFragmentShader(context, R.raw.gl_samper2d_fragment_shader)
             programId = GlesUtil.createProgram(vertexShaderId, fragmentShaderId)
 
             vPositionId = GLES20.glGetAttribLocation(programId!!, "vPosition")
@@ -158,8 +196,8 @@ class MainActivity : AppCompatActivity() {
             vertexVboId = createVboBuffer(vertexArray, vertexBuffer)
             textureVertexVboId = createVboBuffer(textureVertexArray, fragmentBuffer)
 
-            Log.e("","test...................$context  ....${context.resources} ....${R.mipmap.ic_launcher}")
-            val bitmap: Bitmap = BitmapFactory.decodeResource(context.resources,R.mipmap.a)
+            Log.e("", "test...................$context  ....${context.resources} ....${R.mipmap.ic_launcher}")
+            val bitmap: Bitmap = BitmapFactory.decodeResource(context.resources, R.mipmap.a)
             imgTextureId = createTexture(bitmap)
 
 
@@ -210,7 +248,7 @@ class MainActivity : AppCompatActivity() {
             val textureIds = IntArray(1)
             GLES20.glGenTextures(1, textureIds, 0)
             val textureId = textureIds[0]
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId!!)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT)
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
