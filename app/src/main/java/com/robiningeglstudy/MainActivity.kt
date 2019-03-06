@@ -117,7 +117,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val startTimestamp = System.currentTimeMillis()
-//            drawToFrameBuffer()
+            drawToFrameBuffer()
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
             GLES20.glClearColor(0.0f,1.0f,0.0f,1.0f)
 
