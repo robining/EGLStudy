@@ -103,6 +103,7 @@ class RGLSurfaceView(context: Context, attrs: AttributeSet?, defStyle: Int) : Su
             val eglSurface = eglContextHelper.createEglSurface(surface)
             if(eglSurface != null) {
                 extraEglSurfaces.add(eglSurface)
+                eglContextHelper.bindTo(eglSurface)
             }
         }
     }
@@ -110,7 +111,9 @@ class RGLSurfaceView(context: Context, attrs: AttributeSet?, defStyle: Int) : Su
     fun onSwapExtraBuffer(eglContextHelper: EglContextHelper) {
         for (eglSurface in extraEglSurfaces) {
             Log.e(TAG,"ana------:extra egl surface...swap")
+//            eglContextHelper.bindTo(eglSurface)
             eglContextHelper.swapBuffers(eglSurface)
+//            eglContextHelper.bindTo(eglContextHelper.currentSurface!!)
         }
     }
 

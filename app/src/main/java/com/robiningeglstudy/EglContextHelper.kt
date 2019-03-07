@@ -2,6 +2,7 @@ package com.robiningeglstudy
 
 import android.view.Surface
 import android.opengl.EGL14
+import android.util.Log
 import javax.microedition.khronos.egl.*
 
 
@@ -71,6 +72,8 @@ class EglContextHelper {
             currentEglContext = egl!!.eglCreateContext(currentDisplay, currentGlConfig, eglContext, attrib_list)
         }
 
+        Log.e(".","create egl context:$eglContext  to $currentEglContext")
+
         currentSurface = egl!!.eglCreateWindowSurface(currentDisplay, currentGlConfig, surface, null)
 
         if (!egl!!.eglMakeCurrent(currentDisplay, currentSurface, currentSurface, currentEglContext)) {
@@ -85,6 +88,14 @@ class EglContextHelper {
         }
 
         return egl!!.eglCreateWindowSurface(currentDisplay, currentGlConfig, surface, null)
+    }
+
+    fun bindTo(surface: EGLSurface) : Boolean{
+        if (egl == null || currentDisplay == null || currentGlConfig == null) {
+            return false
+        }
+
+        return egl!!.eglMakeCurrent(currentDisplay, surface, surface, currentEglContext)
     }
 
     fun swapBuffers(eglSurface: EGLSurface) {
@@ -104,5 +115,9 @@ class EglContextHelper {
         egl?.eglTerminate(currentDisplay)
         currentDisplay = null
         egl = null
+    }
+
+    fun toFormatString() : String{
+        return "egl:$egl  context:$currentEglContext  surface:$currentSurface   display:$currentDisplay   glConfig:$currentGlConfig"
     }
 }

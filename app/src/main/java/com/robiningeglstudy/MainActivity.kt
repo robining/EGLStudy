@@ -30,42 +30,42 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 //        CameraUtil.openCamera(surfaceView)
-        surfaceView.setRenders(arrayOf(PictureRender(this)))
+//        surfaceView.setRenders(arrayOf(PictureRender(this)))
 
-//        surfaceView.renderMode = RGLSurfaceView.RenderMode.RENDERMODE_WHEN_DIRTY
-//        val tRender = CameraPreviewRender(this, surfaceView)
-//        surfaceView.setRenders(arrayOf(tRender))
+        surfaceView.renderMode = RGLSurfaceView.RenderMode.RENDERMODE_WHEN_DIRTY
+        val tRender = CameraPreviewRender(this, surfaceView)
+        surfaceView.setRenders(arrayOf(tRender))
 
-//        val mime = "video/avc"
-//        val width = 1080
-//        val height = 1920
-//        val videoFormat = MediaFormat.createVideoFormat(mime, 1080, 1920)
-//        videoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-//        videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 4)
-//        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
-//        videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-//        val encodec = MediaCodec.createEncoderByType(mime)
-//        encodec.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-//
-//        val surface = encodec.createInputSurface()
-//        surfaceView.getExtraSurfaces().add(surface)
-//
-//        encodec.start()
-//
-//        thread {
-//            val mediaInfo = MediaCodec.BufferInfo()
-//            while (true){
-//                var outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
-//                while (outbufferIndex >= 0){
-//                    val buffer = encodec.outputBuffers[outbufferIndex]
-//                    buffer.position(mediaInfo.offset)
-//                    buffer.limit(mediaInfo.size + mediaInfo.offset)
-//                    Log.e("MainActivity", "ana------:encoded ${mediaInfo.size} data")
-//                    encodec.releaseOutputBuffer(outbufferIndex,false)
-//                    outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
-//                }
-//            }
-//        }
+        val mime = "video/avc"
+        val width = 1080
+        val height = 1920
+        val videoFormat = MediaFormat.createVideoFormat(mime, 1080, 1920)
+        videoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+        videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 4)
+        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
+        videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        val encodec = MediaCodec.createEncoderByType(mime)
+        encodec.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+
+        val surface = encodec.createInputSurface()
+        surfaceView.getExtraSurfaces().add(surface)
+
+        encodec.start()
+
+        thread {
+            val mediaInfo = MediaCodec.BufferInfo()
+            while (true){
+                var outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
+                while (outbufferIndex >= 0){
+                    val buffer = encodec.outputBuffers[outbufferIndex]
+                    buffer.position(mediaInfo.offset)
+                    buffer.limit(mediaInfo.size + mediaInfo.offset)
+                    Log.e("MainActivity", "ana------:encoded ${mediaInfo.size} data")
+                    encodec.releaseOutputBuffer(outbufferIndex,false)
+                    outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
+                }
+            }
+        }
     }
 
     class BackgroundRender : GLSurfaceView.Renderer {
