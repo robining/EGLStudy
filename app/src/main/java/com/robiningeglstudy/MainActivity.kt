@@ -20,6 +20,7 @@ import android.hardware.Camera
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
+import android.opengl.Matrix
 import kotlin.concurrent.thread
 
 
@@ -34,7 +35,7 @@ class MainActivity : AppCompatActivity() {
 //        surfaceView.renderMode = RGLSurfaceView.RenderMode.RENDERMODE_WHEN_DIRTY
 //        val tRender = CameraPreviewRender(this, surfaceView)
 //        surfaceView.setRenders(arrayOf(tRender))
-//
+
 //        val mime = "video/avc"
 //        val width = 1080
 //        val height = 1920
@@ -85,7 +86,7 @@ class MainActivity : AppCompatActivity() {
         private var vPositionId: Int? = null
         private var fPositionId: Int? = null
         private var samplerTextureId: Int? = null
-        private var uMatrixId:Int? = null
+        private var uMatrixId: Int? = null
         private var programId: Int? = null
         private var textureId: Int? = null
         private var imgTextureId: Int? = null //若使用fbo缓冲，那么只有imgTextureId里面有图，textureId是初始化的空的
@@ -101,16 +102,27 @@ class MainActivity : AppCompatActivity() {
             1f, 1f
         )
 
+        //fbo使用
+//        private val textureVertexArray = floatArrayOf(
+//            0f, 0f,
+//            1f, 0f,
+//            0f, 1f,
+//            1f, 1f
+//        )
+
+
         private val textureVertexArray = floatArrayOf(
-            0f, 0f,
-            1f, 0f,
             0f, 1f,
-            1f, 1f
+            1f, 1f,
+            0f, 0f,
+            1f, 0f
         )
         private val vertexBuffer: FloatBuffer
         private val fragmentBuffer: FloatBuffer
 
         private var matrix = FloatArray(16)
+        private var bitmapWidth = 0
+        private var bitmapHeight = 0
 
         init {
             vertexBuffer = ByteBuffer.allocateDirect(4 * vertexArray.size)
@@ -164,6 +176,7 @@ class MainActivity : AppCompatActivity() {
             GLES20.glClearColor(0.0f, 1.0f, 0.0f, 1.0f)
 
             GLES20.glUseProgram(programId!!)
+            GLES20.glUniformMatrix4fv(uMatrixId!!, 1, false, matrix, 0)
 
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imgTextureId!!)
@@ -186,31 +199,71 @@ class MainActivity : AppCompatActivity() {
 
         override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
             GLES20.glViewport(0, 0, width, height)
+            Log.e("MainActivity", "viewport size:$width * $height")
 
-
+            initMartix(matrix, bitmapWidth.toFloat(), bitmapHeight.toFloat(), width.toFloat(), height.toFloat())
+//            Matrix.orthoM(matrix,0,-1f,1f,-1f,1f,-1f,1f)
+//            Matrix.rotateM(matrix,0,90f,0f,0f,1f)
+            Matrix.setRotateM(matrix,0,90f,0f,0f,1f)
+            println(">>>${matrix.toList()}")
         }
 
         override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-            val vertexShaderId = GlesUtil.createVertexShader(context, R.raw.gl_vertext_shader)
+            val vertexShaderId = GlesUtil.createVertexShader(context, R.raw.gl_vertex_matrix_shader)
             val fragmentShaderId = GlesUtil.createFragmentShader(context, R.raw.gl_samper2d_fragment_shader)
             programId = GlesUtil.createProgram(vertexShaderId, fragmentShaderId)
 
             vPositionId = GLES20.glGetAttribLocation(programId!!, "vPosition")
             fPositionId = GLES20.glGetAttribLocation(programId!!, "fPosition")
             samplerTextureId = GLES20.glGetUniformLocation(programId!!, "samplerTexture")
-            uMatrixId = GLES20.glGetUniformLocation(programId!!,"mMatrix")
+            uMatrixId = GLES20.glGetUniformLocation(programId!!, "uMatrix")
 
             vertexVboId = createVboBuffer(vertexArray, vertexBuffer)
             textureVertexVboId = createVboBuffer(textureVertexArray, fragmentBuffer)
 
             Log.e("", "test...................$context  ....${context.resources} ....${R.mipmap.ic_launcher}")
-            val bitmap: Bitmap = BitmapFactory.decodeResource(context.resources, R.mipmap.a)
-            imgTextureId = createTexture(bitmap)
+            val bitmap: Bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.b)
+            bitmapWidth = bitmap.width
+            bitmapHeight = bitmap.height
 
+            Log.e("MainActivity", "bitmap size:$bitmapWidth * $bitmapHeight")
+            imgTextureId = createTexture(bitmap)
 
             textureId = createTexture(null)
             textureFboId = createFboBuffer(textureId!!)
             isCreatedSuccess = true
+        }
+
+        private fun initMartix(
+            matrix: FloatArray,
+            targetWidth: Float,
+            targetHeight: Float,
+            viewWidth: Float,
+            viewHeight: Float
+        ) {
+            var wRatio: Float
+            var hRatio: Float
+
+            wRatio = targetWidth / viewWidth
+            hRatio = targetHeight / viewHeight
+            if (wRatio > 1 && hRatio <= 1) {
+                //宽度超出屏幕，高度没有
+                hRatio /= wRatio
+                wRatio = 1f
+            } else if (wRatio <= 1 && hRatio > 1) {
+                wRatio /= hRatio
+                hRatio = 1f
+            } else if (wRatio > 1 && hRatio > 1) {
+                //都超过屏幕，以大的边进行所需
+                val ratio = Math.max(wRatio, hRatio)
+                wRatio /= ratio
+                hRatio /= ratio
+            }
+
+            //转换成倍数
+            wRatio = 1 / wRatio
+            hRatio = 1 / hRatio
+            Matrix.orthoM(matrix, 0, -wRatio, wRatio, -hRatio, hRatio, -1f, 1f)
         }
 
 
