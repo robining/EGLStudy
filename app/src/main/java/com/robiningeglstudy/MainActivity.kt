@@ -29,41 +29,42 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 //        CameraUtil.openCamera(surfaceView)
+        surfaceView.setRenders(arrayOf(PictureRender(this)))
 
-        surfaceView.renderMode = RGLSurfaceView.RenderMode.RENDERMODE_WHEN_DIRTY
-        val tRender = CameraPreviewRender(this, surfaceView)
-        surfaceView.setRenders(arrayOf(tRender))
-
-        val mime = "video/avc"
-        val width = 1080
-        val height = 1920
-        val videoFormat = MediaFormat.createVideoFormat(mime, 1080, 1920)
-        videoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-        videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 4)
-        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
-        videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-        val encodec = MediaCodec.createEncoderByType(mime)
-        encodec.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-
-        val surface = encodec.createInputSurface()
-        surfaceView.getExtraSurfaces().add(surface)
-
-        encodec.start()
-
-        thread {
-            val mediaInfo = MediaCodec.BufferInfo()
-            while (true){
-                var outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
-                while (outbufferIndex >= 0){
-                    val buffer = encodec.outputBuffers[outbufferIndex]
-                    buffer.position(mediaInfo.offset)
-                    buffer.limit(mediaInfo.size + mediaInfo.offset)
-                    Log.e("MainActivity", "ana------:encoded ${mediaInfo.size} data")
-                    encodec.releaseOutputBuffer(outbufferIndex,false)
-                    outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
-                }
-            }
-        }
+//        surfaceView.renderMode = RGLSurfaceView.RenderMode.RENDERMODE_WHEN_DIRTY
+//        val tRender = CameraPreviewRender(this, surfaceView)
+//        surfaceView.setRenders(arrayOf(tRender))
+//
+//        val mime = "video/avc"
+//        val width = 1080
+//        val height = 1920
+//        val videoFormat = MediaFormat.createVideoFormat(mime, 1080, 1920)
+//        videoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+//        videoFormat.setInteger(MediaFormat.KEY_BIT_RATE, width * height * 4)
+//        videoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
+//        videoFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+//        val encodec = MediaCodec.createEncoderByType(mime)
+//        encodec.configure(videoFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+//
+//        val surface = encodec.createInputSurface()
+//        surfaceView.getExtraSurfaces().add(surface)
+//
+//        encodec.start()
+//
+//        thread {
+//            val mediaInfo = MediaCodec.BufferInfo()
+//            while (true){
+//                var outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
+//                while (outbufferIndex >= 0){
+//                    val buffer = encodec.outputBuffers[outbufferIndex]
+//                    buffer.position(mediaInfo.offset)
+//                    buffer.limit(mediaInfo.size + mediaInfo.offset)
+//                    Log.e("MainActivity", "ana------:encoded ${mediaInfo.size} data")
+//                    encodec.releaseOutputBuffer(outbufferIndex,false)
+//                    outbufferIndex = encodec.dequeueOutputBuffer(mediaInfo,10)
+//                }
+//            }
+//        }
     }
 
     class BackgroundRender : GLSurfaceView.Renderer {
@@ -84,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         private var vPositionId: Int? = null
         private var fPositionId: Int? = null
         private var samplerTextureId: Int? = null
+        private var uMatrixId:Int? = null
         private var programId: Int? = null
         private var textureId: Int? = null
         private var imgTextureId: Int? = null //若使用fbo缓冲，那么只有imgTextureId里面有图，textureId是初始化的空的
@@ -93,10 +95,10 @@ class MainActivity : AppCompatActivity() {
         private var isCreatedSuccess = false
 
         private val vertexArray = floatArrayOf(
-            -0.5f, -0.5f,
-            0.5f, -0.5f,
-            -0.5f, 0.5f,
-            0.5f, 0.5f
+            -1f, -1f,
+            1f, -1f,
+            -1f, 1f,
+            1f, 1f
         )
 
         private val textureVertexArray = floatArrayOf(
@@ -107,6 +109,8 @@ class MainActivity : AppCompatActivity() {
         )
         private val vertexBuffer: FloatBuffer
         private val fragmentBuffer: FloatBuffer
+
+        private var matrix = FloatArray(16)
 
         init {
             vertexBuffer = ByteBuffer.allocateDirect(4 * vertexArray.size)
@@ -155,14 +159,14 @@ class MainActivity : AppCompatActivity() {
             }
 
             val startTimestamp = System.currentTimeMillis()
-            drawToFrameBuffer()
+//            drawToFrameBuffer()
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
             GLES20.glClearColor(0.0f, 1.0f, 0.0f, 1.0f)
 
             GLES20.glUseProgram(programId!!)
 
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId!!)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imgTextureId!!)
             GLES20.glUniform1i(samplerTextureId!!, 1)
 
             GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexVboId!!)
@@ -182,6 +186,8 @@ class MainActivity : AppCompatActivity() {
 
         override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
             GLES20.glViewport(0, 0, width, height)
+
+
         }
 
         override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
@@ -192,6 +198,7 @@ class MainActivity : AppCompatActivity() {
             vPositionId = GLES20.glGetAttribLocation(programId!!, "vPosition")
             fPositionId = GLES20.glGetAttribLocation(programId!!, "fPosition")
             samplerTextureId = GLES20.glGetUniformLocation(programId!!, "samplerTexture")
+            uMatrixId = GLES20.glGetUniformLocation(programId!!,"mMatrix")
 
             vertexVboId = createVboBuffer(vertexArray, vertexBuffer)
             textureVertexVboId = createVboBuffer(textureVertexArray, fragmentBuffer)
