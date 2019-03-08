@@ -1,6 +1,7 @@
 package com.robiningeglstudy
 
 import android.content.Context
+import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.AttributeSet
 import android.util.Log
@@ -22,9 +23,11 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
     private val TAG = "RGLSurfaceView"
     private var glThread: GLThread? = null
     private val extraSurfaces: ArrayList<Surface> = arrayListOf()
-    private val extraSharedRenders: ArrayList<RGLRender> = arrayListOf()
+    private val extraSharedRenders: ArrayList<SharedRenderImpl> = arrayListOf()
     private var renders: Array<GLSurfaceView.Renderer>? = null
     private var renderMode: RenderMode = RenderMode.RENDERMODE_CONTINUOUSLY
+    private var textureId: Int? = null
+    private var fboId: Int? = null
 
     init {
         holder.addCallback(this)
@@ -60,14 +63,25 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
     }
 
     override fun onSurfaceDestoryed() {
-
+        for (sharedRender in extraSharedRenders) {
+            sharedRender.glThread!!.exit()
+        }
     }
 
     override fun onDrawFrame() {
+        //添加离屏渲染
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId!!)
         if (renders != null) {
             for (render in renders!!) {
                 render.onDrawFrame(null)
             }
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        //todo 绘制到本地窗口
+
+        //绘制到共享Render
+        for (sharedRender in extraSharedRenders) {
+            sharedRender.glThread!!.requestRender()
         }
     }
 
@@ -77,16 +91,21 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
                 render.onSurfaceChanged(null, width, height)
             }
         }
+
+        for (sharedRender in extraSharedRenders) {
+            sharedRender.glThread!!.onChanged(width, height)
+        }
     }
 
     override fun onSurfaceCreated(eglContext: EGLContext) {
-
+        textureId = GlesUtil.createTexture(null)
+        fboId = GlesUtil.createFboBuffer(textureId!!)
 
         extraSharedRenders.clear()
         for (surface in extraSurfaces) {
-            val sharedRender = SharedRenderImpl(surface, eglContext,0)
+            val sharedRender = SharedRenderImpl(context, surface, eglContext, textureId!!)
             extraSharedRenders.add(sharedRender)
-            sharedRender.setRenderMode(RenderMode.RENDERMODE_WHEN_DIRTY)
+            sharedRender.initGLThread(RenderMode.RENDERMODE_WHEN_DIRTY)
         }
 
         if (renders != null) {
