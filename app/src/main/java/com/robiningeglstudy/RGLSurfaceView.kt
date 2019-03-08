@@ -100,10 +100,9 @@ class RGLSurfaceView(context: Context, attrs: AttributeSet?, defStyle: Int) : Su
     fun onInitExtraEglHelper(eglContextHelper: EglContextHelper) {
         extraEglSurfaces.clear()
         for (surface in extraSurfaces) {
-            val eglSurface = eglContextHelper.createEglSurface(surface)
+            val eglSurface = eglContextHelper.createEglExtraSurface(surface)
             if(eglSurface != null) {
                 extraEglSurfaces.add(eglSurface)
-                eglContextHelper.bindTo(eglSurface)
             }
         }
     }
@@ -171,8 +170,8 @@ class RGLSurfaceView(context: Context, attrs: AttributeSet?, defStyle: Int) : Su
 
 
                 glSurfaceView.onDrawFrame(null)
-                eglContextHelper.swapBuffers()
                 glSurfaceView.onSwapExtraBuffer(eglContextHelper)
+                eglContextHelper.swapBuffers()
 
                 isStarted = true
             }
@@ -196,9 +195,5 @@ class RGLSurfaceView(context: Context, attrs: AttributeSet?, defStyle: Int) : Su
                 lock.notifyAll()
             }
         }
-    }
-
-    enum class RenderMode {
-        RENDERMODE_WHEN_DIRTY, RENDERMODE_CONTINUOUSLY
     }
 }

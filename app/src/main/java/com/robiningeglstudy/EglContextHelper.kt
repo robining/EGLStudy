@@ -2,6 +2,7 @@ package com.robiningeglstudy
 
 import android.view.Surface
 import android.opengl.EGL14
+import android.opengl.GLES20
 import android.util.Log
 import javax.microedition.khronos.egl.*
 
@@ -82,11 +83,10 @@ class EglContextHelper {
 
     }
 
-    fun createEglSurface(surface: Surface): EGLSurface? {
+    fun createEglExtraSurface(surface: Surface): EGLSurface? {
         if (egl == null || currentDisplay == null || currentGlConfig == null) {
             return null
         }
-
         return egl!!.eglCreateWindowSurface(currentDisplay, currentGlConfig, surface, null)
     }
 
