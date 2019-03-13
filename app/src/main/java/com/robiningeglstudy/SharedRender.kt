@@ -85,7 +85,7 @@ open class SharedRender(
     }
 
 
-    override fun onSurfaceDestoryed() {
+    override fun onSurfaceDestroyed() {
 
     }
 

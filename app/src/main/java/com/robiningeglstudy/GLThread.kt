@@ -14,7 +14,7 @@ class GLThread(
     private var isChanged = false
     private var width: Int = 0
     private var height: Int = 0
-    private var eglContextHelper = RobiningEglContextHelper()
+    private var eglContextHelper = EglContextHelper()
     private val lock = Object()
     private var isStarted = false
     private var renderMode: RenderMode = RenderMode.RENDERMODE_CONTINUOUSLY
@@ -64,7 +64,7 @@ class GLThread(
         }
 
         eglContextHelper.destoryEGL()
-        glRenderRef.get()?.onSurfaceDestoryed()
+        glRenderRef.get()?.onSurfaceDestroyed()
     }
 
     fun onChanged(width: Int, height: Int) {

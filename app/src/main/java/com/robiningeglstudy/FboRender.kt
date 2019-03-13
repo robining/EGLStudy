@@ -85,7 +85,7 @@ open class FboRender(
     }
 
 
-    override fun onSurfaceDestoryed() {
+    override fun onSurfaceDestroyed() {
 
     }
 

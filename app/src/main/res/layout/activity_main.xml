@@ -17,7 +17,7 @@
             android:layout_height="wrap_content"
             android:text="停止"
             android:onClick="stopRecord"/>
-    <com.robiningeglstudy.RGLSurfaceView1
+    <com.robiningeglstudy.RGLSurfaceView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:id="@+id/surfaceView"/>

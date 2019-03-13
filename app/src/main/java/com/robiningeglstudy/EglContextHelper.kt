@@ -80,26 +80,6 @@ class EglContextHelper {
         if (!egl!!.eglMakeCurrent(currentDisplay, currentSurface, currentSurface, currentEglContext)) {
             throw IllegalStateException("egl make failed")
         }
-
-    }
-
-    fun createEglExtraSurface(surface: Surface): EGLSurface? {
-        if (egl == null || currentDisplay == null || currentGlConfig == null) {
-            return null
-        }
-        return egl!!.eglCreateWindowSurface(currentDisplay, currentGlConfig, surface, null)
-    }
-
-    fun bindTo(surface: EGLSurface) : Boolean{
-        if (egl == null || currentDisplay == null || currentGlConfig == null) {
-            return false
-        }
-
-        return egl!!.eglMakeCurrent(currentDisplay, surface, surface, currentEglContext)
-    }
-
-    fun swapBuffers(eglSurface: EGLSurface) {
-        egl?.eglSwapBuffers(currentDisplay, eglSurface)
     }
 
     fun swapBuffers() {
@@ -115,9 +95,5 @@ class EglContextHelper {
         egl?.eglTerminate(currentDisplay)
         currentDisplay = null
         egl = null
-    }
-
-    fun toFormatString() : String{
-        return "egl:$egl  context:$currentEglContext  surface:$currentSurface   display:$currentDisplay   glConfig:$currentGlConfig"
     }
 }

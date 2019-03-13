@@ -99,8 +99,6 @@ open class SurfaceTextureRender(private val context: Context) : GLSurfaceView.Re
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        Log.e("SurfaceTextureRender", "ana------:on draw frame")
-
         GLES20.glUseProgram(programId!!)
         GLES20.glUniformMatrix4fv(vMatrixId!!, 1, false, vertexMatrix, 0)
         GLES20.glUniformMatrix4fv(fMatrixId!!, 1, false, textureVertexMatrix, 0)

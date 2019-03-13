@@ -1,43 +1,33 @@
 package com.robiningeglstudy
 
 import android.content.Context
+import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import java.lang.ref.WeakReference
-import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.egl.EGLContext
-import javax.microedition.khronos.egl.EGLSurface
-import javax.microedition.khronos.opengles.GL10
 
 class RGLSurfaceView(context: Context, attrs: AttributeSet?, defStyle: Int) : SurfaceView(context, attrs, defStyle),
-    SurfaceHolder.Callback, GLSurfaceView.Renderer {
+    SurfaceHolder.Callback, RGLRender {
 
     constructor(context: Context, attrs: AttributeSet?) : this(context, attrs, 0)
     constructor(context: Context) : this(context, null)
 
     private val TAG = "RGLSurfaceView"
-    private var surface: Surface? = null
-    private var eglContext: EGLContext? = null
     private var glThread: GLThread? = null
     private val extraSurfaces: ArrayList<Surface> = arrayListOf()
-    private val extraEglSurfaces: ArrayList<EGLSurface> = arrayListOf()
+    private val extraSharedRenders: ArrayList<SharedRender> = arrayListOf()
     private var renders: Array<GLSurfaceView.Renderer>? = null
-    var renderMode: RenderMode = RenderMode.RENDERMODE_CONTINUOUSLY
+    private var renderMode: RenderMode = RenderMode.RENDERMODE_CONTINUOUSLY
+    private var textureId: Int? = null
+    private var fboId: Int? = null
+    private var fboRender: FboRender? = null
 
     init {
         holder.addCallback(this)
-    }
-
-    fun setSurface(surface: Surface) {
-        this.surface = surface
-    }
-
-    fun setEglContext(eglContext: EGLContext) {
-        this.eglContext = eglContext
     }
 
     fun getExtraSurfaces(): ArrayList<Surface> {
@@ -64,136 +54,75 @@ class RGLSurfaceView(context: Context, attrs: AttributeSet?, defStyle: Int) : Su
     }
 
     override fun surfaceCreated(holder: SurfaceHolder?) {
-        if (surface == null) {
-            surface = holder!!.surface
-        }
-
-        glThread = GLThread(WeakReference(this))
+        glThread = GLThread(WeakReference(this), holder!!.surface, null)
+        glThread!!.setRenderMode(renderMode)
         glThread!!.start()
     }
 
-
-    override fun onDrawFrame(gl: GL10?) {
-        if (renders != null) {
-            for (render in renders!!) {
-                render.onDrawFrame(gl)
-            }
+    override fun onSurfaceDestroyed() {
+        for (sharedRender in extraSharedRenders) {
+            sharedRender.glThread!!.exit()
         }
     }
 
-    override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
+    override fun onDrawFrame() {
+        //添加离屏渲染
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId!!)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f)
         if (renders != null) {
             for (render in renders!!) {
-                render.onSurfaceChanged(gl, width, height)
+                render.onDrawFrame(null)
             }
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
+        //绘制到本地窗口
+        fboRender!!.onDrawFrame()
+
+        //绘制到共享Render
+        for (sharedRender in extraSharedRenders) {
+            sharedRender.glThread!!.requestRender()
         }
     }
 
-    override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
+    override fun onSurfaceChanged(width: Int, height: Int) {
+        fboRender!!.onSurfaceChanged(width,height)
+
         if (renders != null) {
             for (render in renders!!) {
-                render.onSurfaceCreated(gl, config)
+                render.onSurfaceChanged(null, width, height)
             }
+        }
+
+        for (sharedRender in extraSharedRenders) {
+            sharedRender.glThread!!.onChanged(width, height)
         }
     }
 
-    fun onInitExtraEglHelper(eglContextHelper: EglContextHelper) {
-        extraEglSurfaces.clear()
+    override fun onSurfaceCreated(eglContext: EGLContext) {
+        textureId = GlesUtil.createTexture(null)
+        fboId = GlesUtil.createFboBuffer(textureId!!)
+
+        fboRender = FboRender(context, textureId!!)
+        fboRender!!.onSurfaceCreated(eglContext)
+
+        extraSharedRenders.clear()
         for (surface in extraSurfaces) {
-            val eglSurface = eglContextHelper.createEglExtraSurface(surface)
-            if(eglSurface != null) {
-                extraEglSurfaces.add(eglSurface)
+            val sharedRender = SharedRender(context, textureId!!)
+            extraSharedRenders.add(sharedRender)
+            sharedRender.initGLThread(surface, eglContext, RenderMode.RENDERMODE_WHEN_DIRTY)
+        }
+
+        if (renders != null) {
+            for (render in renders!!) {
+                render.onSurfaceCreated(null, null)
             }
         }
     }
 
-    fun onSwapExtraBuffer(eglContextHelper: EglContextHelper) {
-        for (eglSurface in extraEglSurfaces) {
-            Log.e(TAG,"ana------:extra egl surface...swap")
-//            eglContextHelper.bindTo(eglSurface)
-            eglContextHelper.swapBuffers(eglSurface)
-//            eglContextHelper.bindTo(eglContextHelper.currentSurface!!)
-        }
-    }
-
-    fun onDestroyExtraEglContextHelper(eglContextHelper: EglContextHelper) {
-        extraEglSurfaces.clear()
-    }
-
-
-    class GLThread(private val glSurfaceViewRef: WeakReference<RGLSurfaceView>) : Thread() {
-        private var isDestoryed = false
-        private var isChanged = false
-        private var width: Int = 0
-        private var height: Int = 0
-        private var eglContextHelper = EglContextHelper()
-        private val lock = Object()
-        private var isStarted = false
-
-        override fun run() {
-            super.run()
-            if (glSurfaceViewRef.get() != null && glSurfaceViewRef.get()!!.surface != null) {
-                eglContextHelper.init(glSurfaceViewRef.get()!!.surface!!, glSurfaceViewRef.get()!!.eglContext)
-                glSurfaceViewRef.get()!!.onInitExtraEglHelper(eglContextHelper)
-                glSurfaceViewRef.get()!!.onSurfaceCreated(null, eglContextHelper.currentGlConfig)
-            } else {
-                return
-            }
-
-            while (!isDestoryed) {
-                val glSurfaceView = glSurfaceViewRef.get()
-                if (glSurfaceView == null) {
-                    isDestoryed = true
-                    break
-                }
-
-                if (isChanged) {
-                    isChanged = false
-                    glSurfaceView.onSurfaceChanged(null, width, height)
-                }
-
-                if (glSurfaceView.renderMode == RenderMode.RENDERMODE_WHEN_DIRTY) {
-                    try {
-                        Log.e("RGLSurfaceView","ana------:wait request render")
-                        synchronized(lock){
-                            lock.wait()
-                        }
-                        Log.e("RGLSurfaceView","ana------:requested a render,continue")
-                    } catch (ex: InterruptedException) {
-                    }
-                }else{
-                    try {
-                        Thread.sleep(1000 / 60)
-                    } catch (ex: InterruptedException) {
-                    }
-                }
-
-
-                glSurfaceView.onDrawFrame(null)
-                glSurfaceView.onSwapExtraBuffer(eglContextHelper)
-                eglContextHelper.swapBuffers()
-
-                isStarted = true
-            }
-
-            glSurfaceViewRef.get()?.onDestroyExtraEglContextHelper(eglContextHelper)
-            eglContextHelper.destoryEGL()
-        }
-
-        fun onChanged(width: Int, height: Int) {
-            isChanged = true
-            this.width = width
-            this.height = height
-        }
-
-        fun exit() {
-            isDestoryed = true
-        }
-
-        fun requestRender() {
-            synchronized(lock){
-                lock.notifyAll()
-            }
-        }
+    fun setRenderMode(renderMode: RenderMode) {
+        this.renderMode = renderMode
+        glThread?.setRenderMode(renderMode)
     }
 }

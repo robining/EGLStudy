@@ -4,9 +4,7 @@ import android.app.Activity
 import android.graphics.SurfaceTexture
 import android.hardware.Camera
 import android.opengl.Matrix
-import android.util.Log
 import javax.microedition.khronos.opengles.GL10
-import kotlin.concurrent.thread
 
 class CameraRender(private val activity: Activity,private val listener:SurfaceTextureRender.SurfaceTextureListener) :
     SurfaceTextureRender(activity),
@@ -15,7 +13,6 @@ class CameraRender(private val activity: Activity,private val listener:SurfaceTe
     private var cameraPreviewSize: Camera.Size? = null
     override fun onSurfaceTexureCreated(surfaceTexture: SurfaceTexture) {
         surfaceTexture.setOnFrameAvailableListener {
-            Log.e("CameraPreviewRender", "ana------:on frame available")
             listener.onSurfaceTexureCreated(surfaceTexture)
         }
 
@@ -50,10 +47,6 @@ class CameraRender(private val activity: Activity,private val listener:SurfaceTe
                     height.toFloat()
                 )
             }
-
-//            Matrix.rotateM(matrix, 0, CameraUtil.degree.toFloat(), 0f, 0f, 1f)
-            println(">>> display degree:${CameraUtil.degree} .... ${cameraPreviewSize!!.width} * ${cameraPreviewSize!!.height}")
-
         }
     }
 
@@ -64,7 +57,6 @@ class CameraRender(private val activity: Activity,private val listener:SurfaceTe
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        println(">>> surface size: $width * $height")
         CameraUtil.onSurfaceChanged(0, activity)
         super.onSurfaceChanged(gl, width, height)
     }
