@@ -4,15 +4,11 @@ import android.content.Context
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import java.lang.ref.WeakReference
-import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.egl.EGLContext
-import javax.microedition.khronos.egl.EGLSurface
-import javax.microedition.khronos.opengles.GL10
 
 class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : SurfaceView(context, attrs, defStyle),
     SurfaceHolder.Callback, RGLRender {
@@ -23,11 +19,12 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
     private val TAG = "RGLSurfaceView"
     private var glThread: GLThread? = null
     private val extraSurfaces: ArrayList<Surface> = arrayListOf()
-    private val extraSharedRenders: ArrayList<SharedRenderImpl> = arrayListOf()
+    private val extraSharedRenders: ArrayList<SharedRender> = arrayListOf()
     private var renders: Array<GLSurfaceView.Renderer>? = null
     private var renderMode: RenderMode = RenderMode.RENDERMODE_CONTINUOUSLY
     private var textureId: Int? = null
     private var fboId: Int? = null
+    private var fboRender: FboRender? = null
 
     init {
         holder.addCallback(this)
@@ -49,15 +46,18 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
     }
 
     override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
+        println(">>>gl thread changed")
         glThread?.onChanged(width, height)
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder?) {
+        println(">>> gl thread exit")
         glThread?.exit()
     }
 
     override fun surfaceCreated(holder: SurfaceHolder?) {
-        glThread = GLThread(WeakReference(this), null, null)
+        println(">>> create gl thread")
+        glThread = GLThread(WeakReference(this), holder!!.surface, null)
         glThread!!.setRenderMode(renderMode)
         glThread!!.start()
     }
@@ -69,15 +69,20 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
     }
 
     override fun onDrawFrame() {
+        println(">>> rgl surfaceView draw frame")
         //添加离屏渲染
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId!!)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f)
         if (renders != null) {
             for (render in renders!!) {
                 render.onDrawFrame(null)
             }
         }
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-        //todo 绘制到本地窗口
+
+        //绘制到本地窗口
+        fboRender!!.onDrawFrame()
 
         //绘制到共享Render
         for (sharedRender in extraSharedRenders) {
@@ -86,6 +91,9 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
     }
 
     override fun onSurfaceChanged(width: Int, height: Int) {
+        println(">>> rgl surfaceView surface changed")
+        fboRender!!.onSurfaceChanged(width,height)
+
         if (renders != null) {
             for (render in renders!!) {
                 render.onSurfaceChanged(null, width, height)
@@ -98,14 +106,18 @@ class RGLSurfaceView1(context: Context, attrs: AttributeSet?, defStyle: Int) : S
     }
 
     override fun onSurfaceCreated(eglContext: EGLContext) {
+        println(">>> rgl surfaceView surface created")
         textureId = GlesUtil.createTexture(null)
         fboId = GlesUtil.createFboBuffer(textureId!!)
 
+        fboRender = FboRender(context, textureId!!)
+        fboRender!!.onSurfaceCreated(eglContext)
+
         extraSharedRenders.clear()
         for (surface in extraSurfaces) {
-            val sharedRender = SharedRenderImpl(context, surface, eglContext, textureId!!)
+            val sharedRender = SharedRender(context, textureId!!)
             extraSharedRenders.add(sharedRender)
-            sharedRender.initGLThread(RenderMode.RENDERMODE_WHEN_DIRTY)
+            sharedRender.initGLThread(surface, eglContext, RenderMode.RENDERMODE_WHEN_DIRTY)
         }
 
         if (renders != null) {

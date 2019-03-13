@@ -1,6 +1,7 @@
 package com.robiningeglstudy
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.view.Surface
@@ -10,7 +11,7 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLContext
 
-class SharedRenderImpl(
+open class SharedRender(
     private val context: Context,
     private val textureId: Int
 ) :
@@ -49,8 +50,8 @@ class SharedRenderImpl(
             .put(textureVertexPositions)
         textureVertexBuffer!!.position(0)
 
-        val vertexShaderId = GlesUtil.createVertexShader(context, R.raw.gl_vertex_matrix2_shader)
-        val fragmentShaderId = GlesUtil.createFragmentShader(context, R.raw.gl_oes_fragment_shader)
+        val vertexShaderId = GlesUtil.createVertexShader(context, R.raw.gl_vertext_shader)
+        val fragmentShaderId = GlesUtil.createFragmentShader(context, R.raw.gl_samper2d_fragment_shader)
         programId = GlesUtil.createProgram(vertexShaderId, fragmentShaderId)
 
         vertexAttrId = GLES20.glGetAttribLocation(programId!!, "vPosition")
@@ -75,12 +76,12 @@ class SharedRenderImpl(
         GLES20.glVertexAttribPointer(textureVertexAttrId!!, 2, GLES20.GL_FLOAT, false, 8, textureVertexBuffer)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId!!)
         GLES20.glUniform1i(samplerTextureUniformId!!, 0)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
 
@@ -88,7 +89,7 @@ class SharedRenderImpl(
 
     }
 
-    fun initGLThread(
+    open fun initGLThread(
         surface: Surface,
         eglContext: EGLContext,renderMode: RenderMode) {
         glThread = GLThread(WeakReference(this), surface, eglContext)

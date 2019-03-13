@@ -49,7 +49,7 @@ open class SurfaceTextureRender(private val context: Context) : GLSurfaceView.Re
     private val vertexMatrix = FloatArray(16)
     private val textureVertexMatrix = FloatArray(16)
 
-    override fun onSurfaceCreated(gl: GL10?, config: EGLConfig) {
+    override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         vertexBuffer = ByteBuffer.allocateDirect(4 * vertexPositions.size)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer()
@@ -100,8 +100,6 @@ open class SurfaceTextureRender(private val context: Context) : GLSurfaceView.Re
 
     override fun onDrawFrame(gl: GL10?) {
         Log.e("SurfaceTextureRender", "ana------:on draw frame")
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        GLES20.glClearColor(1.0f, 0.0f, 0.0f, 1.0f)
 
         GLES20.glUseProgram(programId!!)
         GLES20.glUniformMatrix4fv(vMatrixId!!, 1, false, vertexMatrix, 0)

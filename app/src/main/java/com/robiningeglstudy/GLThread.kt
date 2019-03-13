@@ -14,7 +14,7 @@ class GLThread(
     private var isChanged = false
     private var width: Int = 0
     private var height: Int = 0
-    private var eglContextHelper = EglContextHelper()
+    private var eglContextHelper = RobiningEglContextHelper()
     private val lock = Object()
     private var isStarted = false
     private var renderMode: RenderMode = RenderMode.RENDERMODE_CONTINUOUSLY
@@ -23,7 +23,7 @@ class GLThread(
         super.run()
         if (glRenderRef.get() != null && surface != null) {
             eglContextHelper.init(surface, eglContext)
-            glRenderRef.get()!!.onSurfaceCreated()
+            glRenderRef.get()!!.onSurfaceCreated(eglContextHelper.currentEglContext!!)
         } else {
             return
         }
@@ -43,7 +43,9 @@ class GLThread(
             if (renderMode == RenderMode.RENDERMODE_WHEN_DIRTY) {
                 try {
                     synchronized(lock) {
+                        println(">>>start wait lock notify")
                         lock.wait()
+                        println(">>>lock notify")
                     }
                 } catch (ex: InterruptedException) {
                 }
@@ -77,6 +79,7 @@ class GLThread(
 
     fun requestRender() {
         synchronized(lock) {
+            println(">>>notify all lock")
             lock.notifyAll()
         }
     }
